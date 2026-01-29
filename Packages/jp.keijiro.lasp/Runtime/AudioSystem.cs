@@ -112,7 +112,8 @@ namespace Lasp
 
         #region Update method implementation
 
-        static void Update()
+        // Made public for edit-mode support
+        public static void Update()
         {
             Context.FlushEvents();
             _inputDeviceList.UpdateAll(UnityEngine.Time.deltaTime);

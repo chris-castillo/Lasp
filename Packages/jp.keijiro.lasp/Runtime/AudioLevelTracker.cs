@@ -1,4 +1,7 @@
 using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace Lasp
 {
@@ -6,6 +9,7 @@ namespace Lasp
     // Unity component used to track audio input level and drive other
     // components via UnityEvent
     //
+    [ExecuteAlways]
     [AddComponentMenu("LASP/Audio Level Tracker")]
     public sealed class AudioLevelTracker : MonoBehaviour
     {
@@ -137,17 +141,59 @@ namespace Lasp
 
         #region MonoBehaviour implementation
 
+#if UNITY_EDITOR
+        double _lastEditorTime;
+
+        void OnEnable()
+        {
+            if (!Application.isPlaying)
+            {
+                EditorApplication.update += EditorUpdate;
+                _lastEditorTime = EditorApplication.timeSinceStartup;
+            }
+        }
+
+        void EditorUpdate()
+        {
+            if (Application.isPlaying) return;
+
+            // Manually pump AudioSystem since PlayerLoop doesn't run in edit mode
+            AudioSystem.Update();
+
+            // Calculate editor deltaTime
+            double currentTime = EditorApplication.timeSinceStartup;
+            float deltaTime = (float)(currentTime - _lastEditorTime);
+            _lastEditorTime = currentTime;
+
+            // Process audio with calculated deltaTime
+            ProcessAudio(deltaTime);
+        }
+
+        void OnDisable()
+        {
+            if (!Application.isPlaying)
+            {
+                EditorApplication.update -= EditorUpdate;
+            }
+        }
+#endif
+
         void Update()
         {
+            if (!Application.isPlaying) return; // Handled by EditorUpdate in edit mode
+            ProcessAudio(Time.deltaTime);
+        }
+
+        void ProcessAudio(float deltaTime)
+        {
             var input = inputLevel;
-            var dt = Time.deltaTime;
 
             // Auto gain control
             if (_autoGain)
             {
                 // Slowly return to the noise floor.
                 const float kDecaySpeed = 0.6f;
-                _head = Mathf.Max(_head - kDecaySpeed * dt, kSilence);
+                _head = Mathf.Max(_head - kDecaySpeed * deltaTime, kSilence);
 
                 // Pull up by input with a small headroom.
                 var room = _dynamicRange * 0.05f;
@@ -161,8 +207,8 @@ namespace Lasp
             if (_smoothFall)
             {
                 // Hold and fall down animation
-                _fall += Mathf.Pow(10, 1 + _fallSpeed * 2) * dt;
-                _normalizedLevel -= _fall * dt;
+                _fall += Mathf.Pow(10, 1 + _fallSpeed * 2) * deltaTime;
+                _normalizedLevel -= _fall * deltaTime;
 
                 // Pull up by input.
                 if (_normalizedLevel < normalizedInput)

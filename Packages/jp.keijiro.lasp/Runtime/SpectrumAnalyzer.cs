@@ -1,5 +1,8 @@
 using UnityEngine;
 using Unity.Mathematics;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace Lasp
 {
@@ -7,6 +10,7 @@ namespace Lasp
     // Unity component used to provide spectrum data from a specific audio
     // channel.
     //
+    [ExecuteAlways]
     [AddComponentMenu("LASP/Spectrum Analyzer")]
     public sealed class SpectrumAnalyzer : MonoBehaviour
     {
@@ -137,8 +141,44 @@ namespace Lasp
 
         #region MonoBehaviour implementation
 
+#if UNITY_EDITOR
+        double _lastEditorTime;
+
+        void OnEnable()
+        {
+            if (!Application.isPlaying)
+            {
+                EditorApplication.update += EditorUpdate;
+                _lastEditorTime = EditorApplication.timeSinceStartup;
+            }
+        }
+
+        void EditorUpdate()
+        {
+            if (Application.isPlaying) return;
+
+            // Manually pump AudioSystem since PlayerLoop doesn't run in edit mode
+            AudioSystem.Update();
+
+            // Calculate editor deltaTime
+            double currentTime = EditorApplication.timeSinceStartup;
+            float deltaTime = (float)(currentTime - _lastEditorTime);
+            _lastEditorTime = currentTime;
+
+            // Process spectrum with calculated deltaTime
+            ProcessSpectrum(deltaTime);
+        }
+#endif
+
         void OnDisable()
         {
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                EditorApplication.update -= EditorUpdate;
+            }
+#endif
+
             _fft?.Dispose();
             _fft = null;
 
@@ -148,15 +188,20 @@ namespace Lasp
 
         void Update()
         {
+            if (!Application.isPlaying) return; // Handled by EditorUpdate in edit mode
+            ProcessSpectrum(Time.deltaTime);
+        }
+
+        void ProcessSpectrum(float deltaTime)
+        {
             var input = Stream?.GetChannelLevel(_channel) ?? kSilence;
-            var dt = Time.deltaTime;
 
             // Auto gain control
             if (_autoGain)
             {
                 // Slowly return to the noise floor.
                 const float kDecaySpeed = 0.6f;
-                _head -= kDecaySpeed * dt;
+                _head -= kDecaySpeed * deltaTime;
                 _head = Mathf.Max(_head, kSilence + _dynamicRange);
 
                 // Pull up by input with a small headroom.
