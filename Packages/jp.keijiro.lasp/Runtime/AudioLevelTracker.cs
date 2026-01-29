@@ -142,14 +142,12 @@ namespace Lasp
         #region MonoBehaviour implementation
 
 #if UNITY_EDITOR
-        double _lastEditorTime;
-
         void OnEnable()
         {
             if (!Application.isPlaying)
             {
+                EditorUpdateManager.RegisterComponent();
                 EditorApplication.update += EditorUpdate;
-                _lastEditorTime = EditorApplication.timeSinceStartup;
             }
         }
 
@@ -157,22 +155,18 @@ namespace Lasp
         {
             if (Application.isPlaying) return;
 
-            // Manually pump AudioSystem since PlayerLoop doesn't run in edit mode
-            AudioSystem.Update();
-
-            // Calculate editor deltaTime
-            double currentTime = EditorApplication.timeSinceStartup;
-            float deltaTime = (float)(currentTime - _lastEditorTime);
-            _lastEditorTime = currentTime;
-
-            // Process audio with calculated deltaTime
-            ProcessAudio(deltaTime);
+            // Only process if AudioSystem was updated this frame
+            if (EditorUpdateManager.WasUpdatedThisFrame)
+            {
+                ProcessAudio(EditorUpdateManager.GetDeltaTime());
+            }
         }
 
         void OnDisable()
         {
             if (!Application.isPlaying)
             {
+                EditorUpdateManager.UnregisterComponent();
                 EditorApplication.update -= EditorUpdate;
             }
         }
@@ -180,7 +174,9 @@ namespace Lasp
 
         void Update()
         {
+#if UNITY_EDITOR
             if (!Application.isPlaying) return; // Handled by EditorUpdate in edit mode
+#endif
             ProcessAudio(Time.deltaTime);
         }
 
