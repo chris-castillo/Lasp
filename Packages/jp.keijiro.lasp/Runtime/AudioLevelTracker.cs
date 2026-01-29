@@ -57,6 +57,14 @@ namespace Lasp
           { get => _dynamicRange;
             set => _dynamicRange = value; }
 
+#if UNITY_EDITOR
+        // Edit mode execution toggle (Editor only)
+        [SerializeField] bool _runInEditMode = false;
+        public bool runInEditMode
+          { get => _runInEditMode;
+            set => _runInEditMode = value; }
+#endif
+
         // Smooth fall animation switch
         [SerializeField] bool _smoothFall = true;
         public bool smoothFall
@@ -144,7 +152,7 @@ namespace Lasp
 #if UNITY_EDITOR
         void OnEnable()
         {
-            if (!Application.isPlaying)
+            if (!Application.isPlaying && _runInEditMode)
             {
                 EditorUpdateManager.RegisterComponent();
                 EditorApplication.update += EditorUpdate;
@@ -153,7 +161,7 @@ namespace Lasp
 
         void EditorUpdate()
         {
-            if (Application.isPlaying) return;
+            if (Application.isPlaying || !_runInEditMode) return;
 
             // Only process if AudioSystem was updated this frame
             if (EditorUpdateManager.WasUpdatedThisFrame)
@@ -164,7 +172,7 @@ namespace Lasp
 
         void OnDisable()
         {
-            if (!Application.isPlaying)
+            if (!Application.isPlaying && _runInEditMode)
             {
                 EditorUpdateManager.UnregisterComponent();
                 EditorApplication.update -= EditorUpdate;
