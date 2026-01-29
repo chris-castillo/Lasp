@@ -63,10 +63,23 @@ namespace Lasp
             }
 
             // Update AudioSystem once per frame
-            AudioSystem.Update();
+            // Wrapped in try-catch to handle audio device disconnections gracefully
+            try
+            {
+                AudioSystem.Update();
+                _lastUpdateTime = currentTime;
+                _hasUpdatedThisFrame = true;
+            }
+            catch (System.Exception e)
+            {
+                UnityEngine.Debug.LogWarning($"LASP EditorUpdateManager: Audio system error (device may have disconnected): {e.Message}");
 
-            _lastUpdateTime = currentTime;
-            _hasUpdatedThisFrame = true;
+                // Temporarily disable to prevent crash loop
+                Enabled = false;
+                UnityEngine.Debug.LogWarning("LASP EditorUpdateManager: Temporarily disabled edit mode updates. Re-enable manually after audio device is stable.");
+
+                _hasUpdatedThisFrame = false;
+            }
         }
 
         /// <summary>
