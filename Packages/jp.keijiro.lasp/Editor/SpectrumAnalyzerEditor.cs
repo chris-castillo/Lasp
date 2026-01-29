@@ -12,6 +12,7 @@ namespace Lasp.Editor
     {
         SerializedProperty _channel;
         SerializedProperty _resolution;
+        SerializedProperty _runInEditMode;
         DeviceSelector _deviceSelector;
         DynamicRangeEditor _dynamicRange;
 
@@ -32,8 +33,9 @@ namespace Lasp.Editor
         void OnEnable()
         {
             var finder = new PropertyFinder(serializedObject);
-            _channel = finder["_channel"];
-            _resolution = finder["_resolution"];
+            _channel       = finder["_channel"];
+            _resolution    = finder["_resolution"];
+            _runInEditMode = finder["_runInEditMode"];
 
             _deviceSelector = new DeviceSelector(serializedObject);
             _dynamicRange = new DynamicRangeEditor(serializedObject);
@@ -48,6 +50,13 @@ namespace Lasp.Editor
             // Device selection (disabled during play mode)
             using (new EditorGUI.DisabledScope(EditorApplication.isPlaying))
                 _deviceSelector.ShowGUI();
+
+            // Edit mode toggle (only in edit mode)
+            if (!EditorApplication.isPlaying && _runInEditMode != null)
+            {
+                EditorGUILayout.Space();
+                EditorGUILayout.PropertyField(_runInEditMode, new GUIContent("Run In Edit Mode"));
+            }
 
             // Channel selection
             EditorGUILayout.PropertyField(_channel);
